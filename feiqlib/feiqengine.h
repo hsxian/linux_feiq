@@ -11,6 +11,7 @@
 #include "msgqueuethread.h"
 #include "ifeiqview.h"
 #include "asynwait.h"
+#include "history.h"
 using namespace std;
 
 class Post;
@@ -28,16 +29,20 @@ public:
 public:
     pair<bool, string> send(shared_ptr<Fellow> fellow, shared_ptr<Content> content);
     pair<bool, string> sendFiles(shared_ptr<Fellow> fellow, list<shared_ptr<FileContent> > &files);
-    bool downloadFile(FileTask* task);
+    bool downloadFile(FileTask *task);
 
 public:
+    shared_ptr<Fellow> mySelf;
     pair<bool, string> start();
     void stop();
-    void addToBroadcast(const string& ip);
+    void addToBroadcast(const string &ip);
     void setMyHost(string host);
     void setMyName(string name);
-    void setView(IFeiqView* view){mView = view;}
-    void sendImOnLine(const string& ip = "");
+    void setView(IFeiqView *view)
+    {
+        mView = view;
+    }
+    void sendImOnLine(const string &ip = "");
     /**
      * @brief enableIntervalDetect 当接入路由，被禁止发送广播包时，
      * 启用间隔检测可每隔一段时间发送一次上线通知到指定网段，以实现检测。
@@ -46,6 +51,7 @@ public:
 
 public:
     FeiqModel &getModel();
+    History &getHistory();
 
 private://trigers
     void onAnsEntry(shared_ptr<Post> post);
@@ -63,7 +69,7 @@ private:
 private:
     shared_ptr<Fellow> addOrUpdateFellow(shared_ptr<Fellow> fellow);
     void dispatchMsg(shared_ptr<ViewEvent> msg);
-    void broadcastToCurstomGroup(SendProtocol& protocol);
+    void broadcastToCurstomGroup(SendProtocol &protocol);
 
 private:
     FeiqCommu mCommu;
@@ -72,10 +78,11 @@ private:
     string mHost;
     string mName;
     MsgQueueThread<ViewEvent> mMsgThd;
-    IFeiqView* mView;
+    IFeiqView *mView;
     vector<string> mBroadcast;
-    bool mStarted=false;
+    bool mStarted = false;
     AsynWait mAsyncWait;//异步等待对方回包
+    History mHistory;
 
     struct EnumClassHash
     {

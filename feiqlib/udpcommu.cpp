@@ -8,7 +8,7 @@
 #include <string.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
-#include <sys/sysctl.h>
+//#include <sys/sysctl.h>
 #include <sys/types.h>
 #include <thread>
 #include <unistd.h>
@@ -84,8 +84,8 @@ bool UdpCommu::startAsyncRecv(UdpRecvHandler handler)
     if (handler == nullptr)
         setFailedMsgAndReturnFalse("handler不能为空")
 
-            if (mSocket == -1)
-                setFailedMsgAndReturnFalse("请先初始化socket");
+        if (mSocket == -1)
+            setFailedMsgAndReturnFalse("请先初始化socket");
 
     mRecvHandler = handler;
     if (!mAsyncMode)

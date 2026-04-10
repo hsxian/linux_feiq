@@ -71,6 +71,7 @@ private slots:
     void openChartTo(const Fellow* fellow);
     void handleFeiqViewEvent(shared_ptr<ViewEvent> event);
     void refreshFellowList();
+    void loadHistoryMessages(const Fellow* fellow);
     void addFellow();
     void openChooseEmojiDlg();
     void sendFile();

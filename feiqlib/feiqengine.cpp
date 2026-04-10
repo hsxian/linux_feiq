@@ -3,6 +3,7 @@
 #include "ipmsg.h"
 #include "protocol.h"
 #include "utils.h"
+#include <QDir>
 #include <algorithm>
 #include <arpa/inet.h>
 #include <fstream>
@@ -26,7 +27,10 @@ protected:
 class SendTextContent : public ContentSender
 {
 public:
-    int cmdId() override { return IPMSG_SENDMSG | IPMSG_SENDCHECKOPT; }
+    int cmdId() override
+    {
+        return IPMSG_SENDMSG | IPMSG_SENDCHECKOPT;
+    }
     void write(ostream &os) override
     {
         auto content = static_cast<const TextContent *>(mContent);
@@ -47,14 +51,23 @@ public:
 class SendKnockContent : public ContentSender
 {
 public:
-    int cmdId() override { return IPMSG_KNOCK; }
-    void write(ostream &os) override { (void)os; }
+    int cmdId() override
+    {
+        return IPMSG_KNOCK;
+    }
+    void write(ostream &os) override
+    {
+        (void)os;
+    }
 };
 
 class SendFileContent : public ContentSender
 {
 public:
-    int cmdId() override { return IPMSG_SENDMSG | IPMSG_FILEATTACHOPT; }
+    int cmdId() override
+    {
+        return IPMSG_SENDMSG | IPMSG_FILEATTACHOPT;
+    }
     void write(ostream &os) override
     {
         auto content = static_cast<const FileContent *>(mContent);
@@ -80,7 +93,10 @@ class SendImOnLine : public SendProtocol
 {
 public:
     SendImOnLine(const string &name) : mName(name) {}
-    int cmdId() override { return IPMSG_BR_ENTRY; }
+    int cmdId() override
+    {
+        return IPMSG_BR_ENTRY;
+    }
     void write(ostream &os) override
     {
         os << encOut->convert(mName);
@@ -94,7 +110,10 @@ class SendImOffLine : public SendProtocol
 {
 public:
     SendImOffLine(const string &name) : mName(name) {}
-    int cmdId() override { return IPMSG_BR_EXIT; }
+    int cmdId() override
+    {
+        return IPMSG_BR_EXIT;
+    }
     void write(ostream &os) override
     {
         os << encOut->convert(mName);
@@ -113,7 +132,10 @@ public:
     SendSentCheck(const string &packetNo)
         : mPacketNo(packetNo) {}
 
-    int cmdId() override { return IPMSG_RECVMSG; }
+    int cmdId() override
+    {
+        return IPMSG_RECVMSG;
+    }
 
     void write(ostream &os) override
     {
@@ -134,7 +156,10 @@ public:
         : mPacketNo(packetNo) {}
 
 public:
-    int cmdId() override { return IPMSG_READMSG; }
+    int cmdId() override
+    {
+        return IPMSG_READMSG;
+    }
     void write(ostream &os) override
     {
         os << mPacketNo;
@@ -153,7 +178,10 @@ public:
     AnsBrEntry(const string &myName) : mName(myName) {}
 
 public:
-    int cmdId() override { return IPMSG_ANSENTRY; }
+    int cmdId() override
+    {
+        return IPMSG_ANSENTRY;
+    }
     void write(ostream &os) override
     {
         os << encOut->convert(mName);
@@ -358,7 +386,7 @@ public:
 
 private:
     unique_ptr<FileContent> createFileContent(vector<char>::iterator from,
-                                              vector<char>::iterator to)
+            vector<char>::iterator to)
     {
         unique_ptr<FileContent> content(new FileContent());
 
@@ -487,6 +515,12 @@ public:
 
 FeiqEngine::FeiqEngine()
 {
+    //初始化  mySelf
+    mySelf = make_shared<Fellow>(Fellow());
+    mySelf.get()->setIp("127.0.0.1");
+    mySelf.get()->setName("我");
+    mySelf.get()->setOnLine(true);
+
     ADD_RECV_PROTOCOL2(Debuger); //仅用于开发中的调试
 
     ADD_RECV_PROTOCOL3(RecvAnsEntry);
@@ -521,6 +555,14 @@ pair<bool, string> FeiqEngine::send(shared_ptr<Fellow> fellow, shared_ptr<Conten
     auto &sender = mContentSender[content->type()];
     if (sender == nullptr)
         return {false, "no send protocol can send"};
+
+    //记录发送的消息
+    HistoryRecord record;
+    record.time = time_point_cast<milliseconds>(system_clock::now());
+    record.sender = mySelf;
+    record.receiver = fellow;
+    record.what = content;
+    mHistory.add(record);
 
     sender->setContent(content.get());
     auto ip = fellow->getIp();
@@ -644,7 +686,10 @@ bool FeiqEngine::downloadFile(FileTask *task)
 class GetPubKey : public SendProtocol
 {
 public:
-    int cmdId() { return IPMSG_GETPUBKEY; }
+    int cmdId()
+    {
+        return IPMSG_GETPUBKEY;
+    }
     void write(ostream &os)
     {
         (void)os;
@@ -669,6 +714,13 @@ pair<bool, string> FeiqEngine::start()
         mMsgThd.start();
         mMsgThd.setHandler(std::bind(&FeiqEngine::dispatchMsg, this, placeholders::_1));
 
+        //初始化历史记录
+        string dbPath = QDir::home().filePath(".feiq_history.db").toStdString();
+        if (!mHistory.init(dbPath))
+        {
+            cout << "failed to init history" << endl;
+        }
+
         mStarted = true;
         sendImOnLine();
     }
@@ -687,6 +739,7 @@ void FeiqEngine::stop()
         mCommu.stop();
         mAsyncWait.stop();
         mMsgThd.stop();
+        mHistory.unInit();
     }
 }
 
@@ -727,23 +780,28 @@ void FeiqEngine::sendImOnLine(const string &ip)
 void FeiqEngine::enableIntervalDetect(int seconds)
 {
     thread thd([this, seconds]()
-               {
-                   while (mStarted)
-                   {
-                       sleep(seconds);
-                       if (!mStarted)
-                           break;
+    {
+        while (mStarted)
+        {
+            sleep(seconds);
+            if (!mStarted)
+                break;
 
-                       SendImOnLine imOnLine(mName);
-                       broadcastToCurstomGroup(imOnLine);
-                   }
-               });
+            SendImOnLine imOnLine(mName);
+            broadcastToCurstomGroup(imOnLine);
+        }
+    });
     thd.detach();
 }
 
 FeiqModel &FeiqEngine::getModel()
 {
     return mModel;
+}
+
+History &FeiqEngine::getHistory()
+{
+    return mHistory;
 }
 
 void FeiqEngine::onBrEntry(shared_ptr<Post> post)
@@ -757,7 +815,7 @@ void FeiqEngine::onMsg(shared_ptr<Post> post)
     static vector<string> rejectedImages;
 
     auto event = make_shared<MessageViewEvent>();
-    event->when = post->when;
+    event->time = post->time;
     event->fellow = post->from;
 
     auto it = post->contents.begin();
@@ -815,6 +873,17 @@ void FeiqEngine::onMsg(shared_ptr<Post> post)
         content.text = reply;
         send.setContent(&content);
         mCommu.send(post->from->getIp(), send);
+    }
+
+    //记录接收的消息
+    for (auto content : post->contents)
+    {
+        HistoryRecord record;
+        record.time = post->time;
+        record.sender = post->from;
+        record.receiver = mySelf;
+        record.what = content;
+        mHistory.add(record);
     }
 
     if (!event->contents.empty())
@@ -937,7 +1006,7 @@ shared_ptr<Fellow> FeiqEngine::addOrUpdateFellow(shared_ptr<Fellow> fellow)
         auto event = make_shared<FellowViewEvent>();
         event->what = ViewEventType::FELLOW_UPDATE;
         event->fellow = f;
-        event->when = Post::now();
+        event->time = Post::now();
         mMsgThd.sendMessage(event);
     }
 

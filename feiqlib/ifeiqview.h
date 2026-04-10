@@ -13,7 +13,8 @@ using namespace std::chrono;
 #include "filetask.h"
 #include "post.h"
 
-enum class ViewEventType {
+enum class ViewEventType
+{
     FELLOW_UPDATE,
     MESSAGE,
     SEND_TIMEO,
@@ -22,16 +23,17 @@ enum class ViewEventType {
 class ViewEvent
 {
 public:
-    virtual ~ViewEvent(){}
+    virtual ~ViewEvent() {}
 public:
-    decltype(Post::now()) when = Post::now();
+    decltype(Post::now()) time = Post::now();
     ViewEventType what;
 };
 
 class FellowViewEvent : public ViewEvent
 {
 public:
-    FellowViewEvent(){
+    FellowViewEvent()
+    {
         what = ViewEventType::FELLOW_UPDATE;
     }
     shared_ptr<Fellow> fellow;
@@ -40,7 +42,8 @@ public:
 class SendTimeoEvent : public FellowViewEvent
 {
 public:
-    SendTimeoEvent(){
+    SendTimeoEvent()
+    {
         what = ViewEventType::SEND_TIMEO;
     }
 
@@ -50,7 +53,8 @@ public:
 class MessageViewEvent : public FellowViewEvent
 {
 public:
-    MessageViewEvent(){
+    MessageViewEvent()
+    {
         what = ViewEventType::MESSAGE;
     }
     vector<shared_ptr<Content>> contents;
@@ -59,7 +63,7 @@ public:
 class IFeiqView : public IFileTaskObserver
 {
 public:
-    virtual ~IFeiqView(){}
+    virtual ~IFeiqView() {}
     virtual void onEvent(shared_ptr<ViewEvent> event) = 0;
 };
 

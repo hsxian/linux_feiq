@@ -13,8 +13,9 @@ using namespace std;
 
 struct HistoryRecord
 {
-    time_point<steady_clock, milliseconds> when;
-    shared_ptr<Fellow> who;
+    time_point<system_clock, milliseconds> time;
+    shared_ptr<Fellow> sender;
+    shared_ptr<Fellow> receiver;
     shared_ptr<Content> what;
 };
 
@@ -41,10 +42,14 @@ public:
 public:
     void add(const HistoryRecord &record);
     vector<HistoryRecord> query(const string &selection, const vector<string> &args);
+    vector<Fellow> queryFellows(const string &selection);
+    int findFellowId(const string &ip);
+    //确保找到好友id
+    int ensureFindFellowId(const Fellow &fellow);
 
 private:
     unique_ptr<Fellow> getFellow(int id);
-    int findFellowId(const string &ip);
+
 
 private:
     sqlite3 *mDb = nullptr;

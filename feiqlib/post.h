@@ -23,7 +23,7 @@ public:
         return time_point_cast<milliseconds>(system_clock::now());
     }
 
-    decltype(now()) when = Post::now();
+    decltype(now()) time = Post::now();
     vector<char> extra;
 
     string packetNo;

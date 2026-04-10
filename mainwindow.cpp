@@ -9,11 +9,14 @@
 #include <QFileDialog>
 #include <QMessageBox>
 #include <QProcess>
+#if (QT_VERSION <= QT_VERSION_CHECK(6,0,0))
 #include <QTextCodec>
+#endif
+#include <QStringConverter>
 #include <thread>
 
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent),
-                                          ui(new Ui::MainWindow)
+    ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
     qRegisterMetaType<shared_ptr<ViewEvent>>("ViewEventSharedPtr");
@@ -23,8 +26,10 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent),
     //加载配置
     auto settingFilePath = QDir::home().filePath(".feiq_setting.ini");
     mSettings = new Settings(settingFilePath, QSettings::IniFormat);
+#if (QT_VERSION <= QT_VERSION_CHECK(6,0,0))
     mSettings->setIniCodec(QTextCodec::codecForName("UTF-8"));
-    mTitle = mSettings->value("app/title", "mac飞秋").toString();
+#endif
+    mTitle = mSettings->value("app/title", "飞秋").toString();
     setWindowTitle(mTitle);
 
     //初始化搜索对话框
@@ -165,8 +170,35 @@ void MainWindow::openChartTo(const Fellow *fellow)
     mFellowList.top(*fellow);
     mRecvTextEdit->setCurFellow(fellow);
     setWindowTitle(mTitle + " - 与" + fellow->getName().c_str() + "会话中");
+
+    //清空当前聊天窗口并加载历史消息
+    mRecvTextEdit->clear();
+    loadHistoryMessages(fellow);
+
     flushUnshown(fellow);
     updateUnshownHint(fellow);
+}
+
+void MainWindow::loadHistoryMessages(const Fellow *fellow)
+{
+    //从History中加载历史消息
+    auto &history = mFeiq.getHistory();
+    int fellowId = history.findFellowId(fellow->getIp());
+    if (fellowId >= 0)
+    {
+        auto idStr = to_string(fellowId);
+        vector<HistoryRecord> records = history.query("sender = " + idStr + " or receiver = " + idStr, {});
+
+        //按时间顺序显示消息
+        for (const auto &record : records)
+        {
+            auto time = record.time.time_since_epoch().count();
+            //判断消息是自己发送的还是对方发送的
+            //这里简化处理，假设所有消息都是对方发送的
+            //实际应用中需要根据消息的发送者来判断
+            mRecvTextEdit->addContent(record.what.get(), time, record.sender.get()->getIp() == mFeiq.mySelf.get()->getIp());
+        }
+    }
 }
 
 shared_ptr<Fellow> MainWindow::checkCurFellow()
@@ -248,11 +280,13 @@ void MainWindow::handleFeiqViewEvent(shared_ptr<ViewEvent> event)
         auto fellow = e->fellow.get();
 
         if (isActiveWindow() && fellow == mRecvTextEdit->curFellow())
-        { //窗口可见，处理当前用户消息，其他用户消息则放入通知队列
+        {
+            //窗口可见，处理当前用户消息，其他用户消息则放入通知队列
             readEvent(event.get());
         }
         else
-        { //窗口不可见，放入未读队列并通知
+        {
+            //窗口不可见，放入未读队列并通知
             auto &umsg = addUnshownMessage(fellow, event);
             notifyUnshown(umsg);
             updateUnshownHint(fellow);
@@ -505,6 +539,24 @@ void MainWindow::initFeiq()
         emit showErrorAndQuit(ret.second.c_str());
     }
 
+    //从数据库中加载好友列表
+    auto &history = mFeiq.getHistory();
+    //查询所有好友
+    vector<Fellow> fellows = history.queryFellows("ip != '" + mFeiq.mySelf.get()->getIp() + "'");
+    //去重好友列表
+    unordered_map<string, shared_ptr<Fellow>> uniqueFellows;
+    for (const auto &fellow : fellows)
+    {
+        uniqueFellows[fellow.getIp()] = make_shared<Fellow>(fellow);
+    }
+    //将好友添加到界面
+    for (const auto &pair : uniqueFellows)
+    {
+        auto fellow = pair.second;
+        mFeiq.getModel().addFellow(fellow);
+        mFellowList.update(*(fellow.get()));
+    }
+
     qDebug() << "feiq started";
 }
 
@@ -573,7 +625,7 @@ void MainWindow::readEvent(const ViewEvent *event)
     else if (event->what == ViewEventType::MESSAGE)
     {
         auto e = static_cast<const MessageViewEvent *>(event);
-        auto time = e->when.time_since_epoch().count();
+        auto time = e->time.time_since_epoch().count();
         for (auto content : e->contents)
         {
             if (e->fellow == nullptr)
