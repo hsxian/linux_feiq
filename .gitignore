@@ -10,6 +10,8 @@
 *.dll
 *.dylib
 .vscode/
+release/
+debug/
 
 # Qt-es
 

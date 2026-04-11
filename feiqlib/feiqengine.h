@@ -33,6 +33,7 @@ public:
 
 public:
     shared_ptr<Fellow> mySelf;
+    bool initDb();
     pair<bool, string> start();
     void stop();
     void addToBroadcast(const string &ip);

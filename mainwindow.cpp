@@ -59,6 +59,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent),
     //初始化发送文本框
     mSendTextEdit = ui->sendEdit;
     connect(mSendTextEdit, SIGNAL(acceptDropFiles(QList<QFileInfo>)), this, SLOT(sendFiles(QList<QFileInfo>)));
+    connect(mSendTextEdit, SIGNAL(acceptDropImages(QList<QFileInfo>)), this, SLOT(sendImages(QList<QFileInfo>)));
     if (mSettings->value("app/send_by_enter", true).toBool())
     {
         connect(mSendTextEdit, SIGNAL(enterPressed()), this, SLOT(sendText()));
@@ -328,6 +329,24 @@ void MainWindow::sendFiles(QList<QFileInfo> files)
         }
     }
 }
+void MainWindow::sendImages(QList<QFileInfo> files)
+{
+    auto fellow = checkCurFellow();
+    if (!fellow)
+        return;
+
+    for (auto file : files)
+    {
+        if (file.isFile())
+        {
+            sendImage(file.absoluteFilePath().toStdString());
+        }
+        else
+        {
+            mRecvTextEdit->addWarning("不支持发送：" + file.absoluteFilePath());
+        }
+    }
+}
 
 void MainWindow::userAddFellow(QString ip)
 {
@@ -402,6 +421,26 @@ void MainWindow::sendFile(std::string filepath)
     else
     {
         auto fileContent = shared_ptr<FileContent>(std::move(content));
+        auto ret = mFeiq.send(fellow, fileContent);
+        showResult(ret, fileContent.get());
+    }
+}
+
+void MainWindow::sendImage(std::string filepath)
+{
+    auto fellow = checkCurFellow();
+    if (!fellow)
+        return;
+
+    // 创建ImageContent对象
+    auto content = ImageContent::createImageContentToSend(filepath);
+    if (content == nullptr)
+    {
+        mRecvTextEdit->addWarning("获取图片" + QString(filepath.c_str()) + "的信息失败，不发送");
+    }
+    else
+    {
+        auto fileContent = shared_ptr<ImageContent>(std::move(content));
         auto ret = mFeiq.send(fellow, fileContent);
         showResult(ret, fileContent.get());
     }
@@ -524,6 +563,21 @@ void MainWindow::initFeiq()
         }
     }
 
+    //从数据库中加载好友列表
+    if(mFeiq.initDb())
+    {
+        auto &history = mFeiq.getHistory();
+        //查询所有好友
+        vector<Fellow> fellows = history.queryFellows("ip != ?", {mFeiq.mySelf.get()->getIp()});
+        for (const auto &fellow : fellows)
+        {
+            auto fellow2 = make_shared<Fellow>(fellow);
+            mFeiq.getModel().addFellow(fellow2);
+            mFellowList.update(*fellow2.get());
+        }
+    }
+
+
     mFeiq.setView(this);
 
     mFeiq.enableIntervalDetect(60);
@@ -534,18 +588,6 @@ void MainWindow::initFeiq()
     {
         emit showErrorAndQuit(ret.second.c_str());
     }
-
-    //从数据库中加载好友列表
-    auto &history = mFeiq.getHistory();
-    //查询所有好友
-    vector<Fellow> fellows = history.queryFellows("ip != ?", {mFeiq.mySelf.get()->getIp()});
-    for (const auto &fellow : fellows)
-    {
-        auto fellow2 = make_shared<Fellow>(fellow);
-        mFeiq.getModel().addFellow(fellow2);
-        mFellowList.update(*fellow2.get());
-    }
-
 
     qDebug() << "feiq started";
 }

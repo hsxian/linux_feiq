@@ -9,10 +9,11 @@ class SendTextEdit : public QTextEdit
 {
     Q_OBJECT
 public:
-    SendTextEdit(QWidget* parent = 0);
+    SendTextEdit(QWidget *parent = 0);
 
 signals:
     void acceptDropFiles(QList<QFileInfo>);
+    void acceptDropImages(QList<QFileInfo>);
     void ctrlEnterPressed();
     void enterPressed();
 
@@ -25,7 +26,10 @@ protected:
     virtual bool eventFilter(QObject *, QEvent *e) override;
 
 private:
-    bool mCtrlDown =false;
+    bool mCtrlDown = false;
+    QList<QFileInfo>mFiles;
+    QList<QFileInfo>mImages;
+    bool tryEmitMimeFileSignal();
 };
 
 #endif // SENDTEXTEDIT_H

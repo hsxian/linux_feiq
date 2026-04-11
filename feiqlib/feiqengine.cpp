@@ -89,6 +89,34 @@ public:
     }
 };
 
+class SendImageContent : public ContentSender
+{
+public:
+    int cmdId() override
+    {
+        return IPMSG_SENDMSG | IPMSG_FILEATTACHOPT;
+    }
+    void write(ostream &os) override
+    {
+        auto content = static_cast<const FileContent *>(mContent);
+        char sep = HLIST_ENTRY_SEPARATOR;
+        auto filename = content->filename;
+        stringReplace(filename, ":", "::"); //估摸着协议不会变，偷懒下
+        os << (char)0
+           << to_string(content->fileId)
+           << sep
+           << encOut->convert(filename)
+           << sep
+           << std::hex << content->size
+           << sep
+           << content->modifyTime
+           << sep
+           << content->fileType
+           << sep
+           << FILELIST_SEPARATOR;
+    }
+};
+
 class SendImOnLine : public SendProtocol
 {
 public:
@@ -453,15 +481,54 @@ class RecvImage : public RecvProtocol
 public:
     bool read(shared_ptr<Post> post)
     {
-        if (IS_CMD_SET(post->cmdId, IPMSG_SENDIMAGE) && IS_OPT_SET(post->cmdId, IPMSG_FILEATTACHOPT))
+        if (!IS_OPT_SET(post->cmdId, IPMSG_FILEATTACHOPT) || !IS_CMD_SET(post->cmdId, IPMSG_SENDMSG))
+            return false;
+
+        //图片任务信息紧随文本消息之后，中间相隔一个ascii 0
+        //一个图片任务信息格式为fileId:filename:fileSize:modifyTime:fileType:其他扩展属性
+        //多个图片任务以ascii 7分割
+        //文件名含:，以::表示
+        auto &extra = post->extra;
+        auto end = extra.end();
+        auto found = find(extra.begin(), end, 0) + 1;
+
+        while (found != end)
         {
-            char id[9] = {0};
-            memcpy(id, post->extra.data(), 8);
-            auto content = make_shared<ImageContent>();
-            content->id = id;
-            post->contents.push_back(content);
+            auto endTask = find(found, end, FILELIST_SEPARATOR);
+            if (endTask == end)
+                break;
+
+            auto content = createImageContent(found, endTask);
+            if (content != nullptr)
+            {
+                content->packetNo = stoul(post->packetNo);
+                post->contents.push_back(shared_ptr<Content>(std::move(content)));
+            }
+
+            found = ++endTask;
         }
+
         return false;
+    }
+
+private:
+    unique_ptr<ImageContent> createImageContent(vector<char>::iterator from,
+            vector<char>::iterator to)
+    {
+        unique_ptr<ImageContent> content(new ImageContent());
+
+        auto values = splitAllowSeperator(from, to, HLIST_ENTRY_SEPARATOR);
+        const int fieldCount = 5;
+        if (values.size() < fieldCount)
+            return nullptr;
+
+        content->fileId = stoi(values[0]);
+        content->filename = encIn->convert(values[1]);
+        content->size = stoi(values[2], 0, 16);
+        content->modifyTime = stoi(values[3], 0, 16);
+        content->fileType = stoi(values[4], 0, 16);
+
+        return content;
     }
 };
 
@@ -538,6 +605,7 @@ FeiqEngine::FeiqEngine()
     ADD_SEND_PROTOCOL(ContentType::Text, SendTextContent);
     ADD_SEND_PROTOCOL(ContentType::Knock, SendKnockContent);
     ADD_SEND_PROTOCOL(ContentType::File, SendFileContent);
+    ADD_SEND_PROTOCOL(ContentType::Image, SendImageContent);
 
     mCommu.setFileServerHandler(std::bind(&FeiqEngine::fileServerHandler,
                                           this,
@@ -566,7 +634,7 @@ pair<bool, string> FeiqEngine::send(shared_ptr<Fellow> fellow, shared_ptr<Conten
 
     content->setPacketNo(ret.first);
 
-    if (content->type() == ContentType::File)
+    if (content->type() == ContentType::File || content->type() == ContentType::Image)
     {
         auto ptr = dynamic_pointer_cast<FileContent>(content);
         mModel.addUploadTask(fellow, ptr)->setObserver(mView);
@@ -679,6 +747,18 @@ bool FeiqEngine::downloadFile(FileTask *task)
     return task;
 }
 
+bool FeiqEngine::initDb()
+{
+    //初始化历史记录
+    string dbPath = QDir::home().filePath(".feiq_history.db").toStdString();
+    if (!mHistory.init(dbPath))
+    {
+        cout << "failed to init history" << endl;
+        return false;
+    }
+    return true;
+}
+
 class GetPubKey : public SendProtocol
 {
 public:
@@ -709,14 +789,6 @@ pair<bool, string> FeiqEngine::start()
 
         mMsgThd.start();
         mMsgThd.setHandler(std::bind(&FeiqEngine::dispatchMsg, this, placeholders::_1));
-
-        //初始化历史记录
-        string dbPath = QDir::home().filePath(".feiq_history.db").toStdString();
-        if (!mHistory.init(dbPath))
-        {
-            cout << "failed to init history" << endl;
-        }
-
         mStarted = true;
         sendImOnLine();
     }
@@ -850,14 +922,15 @@ void FeiqEngine::onMsg(shared_ptr<Post> post)
         }
         else if ((*it)->type() == ContentType::Image)
         {
-            //这个包还没被拒绝过，发送拒绝消息
-            auto ic = static_cast<ImageContent *>((*it).get());
-            if (std::find(rejectedImages.begin(), rejectedImages.end(), ic->id) == rejectedImages.end())
+            auto ic = static_pointer_cast<FileContent>(*it);
+
+            if (ic->fileType == IPMSG_FILE_REGULAR) //TODO:与飞秋的文件夹传输协议还没支持
+                mModel.addDownloadTask(event->fellow, ic);
+            else if (ic->fileType == IPMSG_FILE_DIR)
             {
-                reply += "Mac飞秋还不支持接收图片，请用文件形式发送图片\n";
-                rejectedImages.push_back(ic->id);
+                rejected = true;
+                reply += "Mac飞秋还不支持接收目录：" + ic->filename + "\n";
             }
-            rejected = true;
         }
 
         if (!rejected)

@@ -48,7 +48,7 @@ void RecvTextEdit::addContent(const Content *content, long long msSinceEpoch, bo
     {
         setAlignment(Qt::AlignLeft);
     }
-    
+
     drawDaySeperatorIfNewDay(msSinceEpoch);
 
     showHint(msSinceEpoch, mySelf);
@@ -56,7 +56,7 @@ void RecvTextEdit::addContent(const Content *content, long long msSinceEpoch, bo
     showContent(content, mySelf);
     append("");
     moveCursor(QTextCursor::End);
-    
+
     // 重置对齐方式为默认的左对齐
     setAlignment(align);
 }
@@ -93,7 +93,7 @@ void RecvTextEdit::showHint(long long msSinceEpoch, bool mySelf)
 
     moveCursor(QTextCursor::End);
     insertHtml(hint);
-    append("");
+    append("\n");
 }
 
 void RecvTextEdit::setCurFellow(const Fellow *fellow)
@@ -120,8 +120,9 @@ void RecvTextEdit::addWarning(const QString &warning)
     auto align = alignment();
     setAlignment(Qt::AlignCenter);
     auto color = textColor();
-    setTextColor(QColor(128, 128, 128));
-    append(warning);
+    QColor c(128, 128, 128);
+    setTextColor(c);
+    append(textHtmlStr( warning, c));
     append("");
     //结束当前段落，否则下一行恢复对齐方式时会将刚append的内容左对齐
     setAlignment(align);
@@ -193,7 +194,28 @@ void RecvTextEdit::showFile(const FileContent *content, bool fromMySelf)
 
 void RecvTextEdit::showImage(const ImageContent *content)
 {
-    showUnSupport("对方发来图片，来图片，图片，片……额~还不支持!");
+    // 尝试加载图片
+    QString imagePath = QString::fromStdString(content->path);
+    QImage image(imagePath);
+    
+    if (!image.isNull())
+    {
+        // 图片加载成功，插入到文本编辑框中
+        QTextCursor cursor = textCursor();
+        QTextDocument *doc = document();
+        
+        // 生成唯一的URL用于图片资源
+        QString imageUrl = QString("image_%1").arg(content->fileId);
+        doc->addResource(QTextDocument::ImageResource, QUrl(imageUrl), image);
+        
+        // 插入图片
+        cursor.insertImage(imageUrl);
+    }
+    else
+    {
+        // 图片加载失败，显示错误信息
+        showUnSupport("图片加载失败: " + QString::fromStdString(content->filename));
+    }
 }
 
 void RecvTextEdit::showText(const TextContent *content)
@@ -240,7 +262,13 @@ void RecvTextEdit::drawDaySeperatorIfNewDay(long long sinceEpoch)
 QString RecvTextEdit::textHtmlStr(const TextContent *content)
 {
     auto str = QString(content->text.c_str());
-    auto htmlStr = str.toHtmlEscaped();
+
+    return textHtmlStr(str, QColor());
+}
+
+QString RecvTextEdit::textHtmlStr(const QString &content, const QColor &color)
+{
+    auto htmlStr = content.toHtmlEscaped();
     htmlStr.replace("\r\n", "<br>");
     htmlStr.replace("\r", "<br>");
     htmlStr.replace("\n", "<br>");
@@ -252,6 +280,9 @@ QString RecvTextEdit::textHtmlStr(const TextContent *content)
         QString imgTag = "<img src=\"" + resName + "\"/>";
         htmlStr.replace(emojiStr, imgTag);
     }
-
+    if(color != QColor::Invalid)
+    {
+        htmlStr = QString("<font color=%1>%2</font>").arg(color.name(), htmlStr);
+    }
     return htmlStr;
 }

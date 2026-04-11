@@ -15,7 +15,8 @@
 
 using namespace std;
 
-namespace Ui {
+namespace Ui
+{
 class MainWindow;
 }
 
@@ -44,56 +45,58 @@ public:
     explicit MainWindow(QWidget *parent = 0);
     ~MainWindow();
 
-    void setFeiqWin(FeiqWin* feiqWin);
+    void setFeiqWin(FeiqWin *feiqWin);
 
 public slots:
-    void onNotifyClicked(const QString& fellowIp);
-    void onNotifyReplied(long notifyId, const QString& fellowIp, const QString& reply);
+    void onNotifyClicked(const QString &fellowIp);
+    void onNotifyReplied(long notifyId, const QString &fellowIp, const QString &reply);
 
 protected:
     void enterEvent(QEvent *event);
 
 signals:
-    void showErrorAndQuit(const QString& text);
-    void statChanged(FileTask* fileTask);
-    void progressChanged(FileTask* fileTask);
+    void showErrorAndQuit(const QString &text);
+    void statChanged(FileTask *fileTask);
+    void progressChanged(FileTask *fileTask);
     void feiqViewEvent(shared_ptr<ViewEvent> event);
 
 private slots:
-    void finishSearch(const Fellow* fellow);
+    void finishSearch(const Fellow *fellow);
     void openSettings();
     void openSearchDlg();
     void openDownloadDlg();
-    void onShowErrorAndQuit(const QString& text);
+    void onShowErrorAndQuit(const QString &text);
     void navigateToFileTask(IdType packetNo, IdType fileId, bool upload);
     void sendKnock();
     void sendText();
-    void openChartTo(const Fellow* fellow);
+    void openChartTo(const Fellow *fellow);
     void handleFeiqViewEvent(shared_ptr<ViewEvent> event);
     void refreshFellowList();
-    void loadHistoryMessages(const Fellow* fellow);
+    void loadHistoryMessages(const Fellow *fellow);
     void addFellow();
     void openChooseEmojiDlg();
     void sendFile();
     void sendFile(string filepath);
+    void sendImage(std::string filepath);
     void sendFiles(QList<QFileInfo> files);
+    void sendImages(QList<QFileInfo> files);
 
 private:
     void userAddFellow(QString ip);
-    long showNotification(const Fellow* fellow, const QString& text);
+    long showNotification(const Fellow *fellow, const QString &text);
     shared_ptr<Fellow> checkCurFellow();
     void showResult(pair<bool, string> ret, const Content *content);
-    vector<const Fellow*> fellowSearchDriver(const QString& text);
+    vector<const Fellow *> fellowSearchDriver(const QString &text);
     void initFeiq();
-    void readEvent(const ViewEvent* event);
+    void readEvent(const ViewEvent *event);
     void setBadgeNumber(int number);
 
-    UnshownMessage& addUnshownMessage(const Fellow *fellow, shared_ptr<ViewEvent> event);
+    UnshownMessage &addUnshownMessage(const Fellow *fellow, shared_ptr<ViewEvent> event);
     UnshownMessage *findUnshownMessage(int id);
     void notifyUnshown(UnshownMessage &umsg);
-    void updateUnshownHint(const Fellow* fellow);
+    void updateUnshownHint(const Fellow *fellow);
     int getUnreadCount();
-    void flushUnshown(const Fellow* fellow);
+    void flushUnshown(const Fellow *fellow);
 
     // IFileTaskObserver interface
 public:
@@ -103,20 +106,19 @@ public:
     // IFeiqView interface
 public:
     void onEvent(shared_ptr<ViewEvent> event);
-
 private:
     Ui::MainWindow *ui;
     FellowListWidget mFellowList;
-    SearchFellowDlg* mSearchFellowDlg;
-    FileManagerDlg* mDownloadFileDlg;
-    ChooseEmojiDlg* mChooseEmojiDlg;
-    Settings* mSettings;
+    SearchFellowDlg *mSearchFellowDlg;
+    FileManagerDlg *mDownloadFileDlg;
+    ChooseEmojiDlg *mChooseEmojiDlg;
+    Settings *mSettings;
     FeiqEngine mFeiq;
-    RecvTextEdit* mRecvTextEdit;
-    SendTextEdit* mSendTextEdit;
+    RecvTextEdit *mRecvTextEdit;
+    SendTextEdit *mSendTextEdit;
     QString mTitle;
-    unordered_map<const Fellow*, list<UnshownMessage>> mUnshownEvents;
-    FeiqWin* mFeiqWin = nullptr;
+    unordered_map<const Fellow *, list<UnshownMessage>> mUnshownEvents;
+    FeiqWin *mFeiqWin = nullptr;
 };
 
 #endif // MAINWINDOW_H

@@ -142,6 +142,34 @@ ImageContent::ImageContent()
     mType = ContentType::Image;
 }
 
+unique_ptr<ImageContent> ImageContent::createImageContentToSend(const string &filePath)
+{
+    auto ft = createFileContentToSend(filePath);
+    auto img = new ImageContent();
+    img->operator =(ft.operator * ());
+    img->fileType = IPMSG_SENDIMAGE;
+    img->mType = ContentType::Image;
+    unique_ptr<ImageContent> file(img);
+    return file;
+}
+ImageContent &ImageContent::operator=(const FileContent &b)
+{
+    FileContent::operator=(b);  // 调用基类赋值
+    return *this;
+}
+
+void ImageContent::writeTo(Parcel &out) const
+{
+    FileContent::writeTo(out);
+    out.writeString(id);
+}
+
+void ImageContent::readFrom(Parcel &in)
+{
+    FileContent::readFrom(in);
+    in.readString(id);
+}
+
 unique_ptr<Content> ContentParcelFactory::createFromParcel(Parcel &in)
 {
     //先读取父类信息

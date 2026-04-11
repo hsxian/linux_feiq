@@ -42,6 +42,7 @@ private:
     void showUnSupport(const QString &text = "");
     void drawDaySeperatorIfNewDay(long long sinceEpoch);
     QString textHtmlStr(const TextContent *content);
+    QString textHtmlStr(const QString &content, const QColor &color);
     void parseLink(const QString &link);
 
 private:

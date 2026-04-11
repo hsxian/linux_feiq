@@ -8,7 +8,7 @@
 #include <string>
 
 using namespace std;
-
+class ImageContent;
 enum class ContentType
 {
     Text,
@@ -86,11 +86,15 @@ public:
     virtual string simpleText() override;
 };
 
-class ImageContent : public Content
+class ImageContent : public FileContent
 {
 public:
-    ImageContent();
     string id;
+    ImageContent();
+    ImageContent &operator=(const FileContent &b);
+    static unique_ptr<ImageContent> createImageContentToSend(const string &filePath);
+    virtual void writeTo(Parcel &out) const override;
+    virtual void readFrom(Parcel &in) override;
 };
 
 class ContentParcelFactory
