@@ -1,6 +1,6 @@
 #include "utils.h"
 #include <memory.h>
-
+#include <iostream>
 vector<string> splitAllowSeperator(vector<char>::iterator from, vector<char>::iterator to, char sep)
 {
     vector<string> values;
@@ -82,4 +82,13 @@ string toString(const vector<char> &buf)
     string result = value;
     delete[] value;
     return result;
+}
+int64_t timeToLong(const SysTimeMs &time)
+{
+    return time.time_since_epoch().count();
+}
+SysTimeMs longToTime(int64_t time)
+{
+    auto ret = SysTimeMs(std::chrono::milliseconds(time));
+    return ret;
 }

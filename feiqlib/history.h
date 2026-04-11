@@ -5,14 +5,18 @@
 #include "fellow.h"
 #include "post.h"
 #include <memory>
-#include <sqlite3.h>
 #include <unordered_map>
 #include <vector>
+#include "ifeiqview.h"
 
+struct sqlite3;
+class SqliteHelper;
 using namespace std;
 
 struct HistoryRecord
 {
+    ulong id;
+    ViewEventType eventType;
     time_point<system_clock, milliseconds> time;
     shared_ptr<Fellow> sender;
     shared_ptr<Fellow> receiver;
@@ -34,15 +38,18 @@ class History
 {
 public:
     History();
+    ~History();
 
 public:
     bool init(const string &dbPath);
     void unInit();
 
 public:
-    void add(const HistoryRecord &record);
+    long long add(const HistoryRecord &record);
+    long long add(const shared_ptr<Fellow> &sender, const shared_ptr<Fellow> &receiver, const shared_ptr<Content> &what);
+    void modify(const string &selection, const vector<string> &args, const ViewEventType &type);
     vector<HistoryRecord> query(const string &selection, const vector<string> &args);
-    vector<Fellow> queryFellows(const string &selection);
+    vector<Fellow> queryFellows(const string &selection, const vector<string> &args);
     int findFellowId(const string &ip);
     //确保找到好友id
     int ensureFindFellowId(const Fellow &fellow);
@@ -53,6 +60,7 @@ private:
 
 private:
     sqlite3 *mDb = nullptr;
+    SqliteHelper *mHelper = nullptr;
 };
 
 #endif // HISTORY_H

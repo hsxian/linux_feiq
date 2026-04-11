@@ -27,3 +27,5 @@ void MsgQueueThread::stop()
     unique_lock<mutex> lock(mQueueMutex);
     mQueueCnd.notify_all();
 }
+
+

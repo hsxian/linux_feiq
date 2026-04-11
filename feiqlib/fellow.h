@@ -2,124 +2,47 @@
 #define FELLOW_H
 
 #include <string>
-#include <memory>
-#include <sstream>
 using namespace std;
+
+#define MYSELF_IP "127.0.0.1"
 
 class Fellow
 {
 public:
-    string getIp() const
-    {
-        return mIp;
-    }
-    string getName() const
-    {
-        return mName.empty() ? mPcName : mName;
-    }
-    string getHost() const
-    {
-        return mHost;
-    }
-    string getMac() const
-    {
-        return mMac;
-    }
-    bool isOnLine() const
-    {
-        return mOnLine;
-    }
-    string version() const
-    {
-        return mVersion;
-    }
+    string getIp() const;
+    string getName() const;
+    string getHost() const;
+    string getMac() const;
+    bool isOnLine() const;
+    string version() const;
 
-    void setIp(const string &value)
-    {
-        mIp = value;
-    }
+    void setIp(const string &value);
 
-    void setName(const string &value)
-    {
-        mName = value;
-    }
+    void setName(const string &value);
 
-    void setHost(const string &value)
-    {
-        mHost = value;
-    }
+    void setHost(const string &value);
 
-    void setMac(const string &value)
-    {
-        mMac = value;
-    }
+    void setMac(const string &value);
 
-    void setOnLine(bool value)
-    {
-        mOnLine = value;
-    }
+    void setOnLine(bool value);
 
-    void setVersion(const string &value)
-    {
-        mVersion = value;
-    }
+    void setVersion(const string &value);
 
-    void setPcName(const string &value)
-    {
-        mPcName = value;
-    }
+    void setPcName(const string &value);
 
-    bool update(const Fellow &fellow)
-    {
-        bool changed = false;
+    bool update(const Fellow &fellow);
 
-        if (!fellow.mName.empty() && mName != fellow.mName)
-        {
-            mName = fellow.mName;
-            changed = true;
-        }
+    bool operator == (const Fellow &fellow);
 
-        if (!fellow.mMac.empty() && mMac != fellow.mMac)
-        {
-            mMac = fellow.mMac;
-            changed = true;
-        }
+    bool isSame(const Fellow &fellow);
 
-        if (mOnLine != fellow.mOnLine)
-        {
-            mOnLine = fellow.mOnLine;
-            changed = true;
-        }
+    string toString() const;
 
-        return changed;
-    }
-
-    bool operator == (const Fellow &fellow)
-    {
-        return isSame(fellow);
-    }
-
-    bool isSame(const Fellow &fellow)
-    {
-        return mIp == fellow.mIp || (!mMac.empty() && mMac == fellow.mMac);
-    }
-
-    string toString() const
-    {
-        ostringstream os;
-        os << "["
-           << "ip=" << mIp
-           << ",name=" << mName
-           << ",host=" << mHost
-           << ",pcname=" << mPcName
-           << ",mac=" << mMac
-           << ",online=" << mOnLine
-           << ",version=" << mVersion
-           << "]";
-        return os.str();
-    }
+    ulong getId() const;
+    void setId(ulong newId);
 
 private:
+    ulong id;
     string mIp;
     string mPcName;
     string mName;

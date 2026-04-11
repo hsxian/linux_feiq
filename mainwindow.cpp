@@ -187,16 +187,11 @@ void MainWindow::loadHistoryMessages(const Fellow *fellow)
     if (fellowId >= 0)
     {
         auto idStr = to_string(fellowId);
-        vector<HistoryRecord> records = history.query("sender = " + idStr + " or receiver = " + idStr, {});
-
+        vector<HistoryRecord> records = history.query("sender = ? or receiver = ?", {idStr, idStr});
         //按时间顺序显示消息
         for (const auto &record : records)
         {
-            auto time = record.time.time_since_epoch().count();
-            //判断消息是自己发送的还是对方发送的
-            //这里简化处理，假设所有消息都是对方发送的
-            //实际应用中需要根据消息的发送者来判断
-            mRecvTextEdit->addContent(record.what.get(), time, record.sender.get()->getIp() == mFeiq.mySelf.get()->getIp());
+            mRecvTextEdit->addHistoryContent(record);
         }
     }
 }
@@ -268,6 +263,7 @@ void MainWindow::onShowErrorAndQuit(const QString &text)
 
 void MainWindow::handleFeiqViewEvent(shared_ptr<ViewEvent> event)
 {
+
     if (event->what == ViewEventType::FELLOW_UPDATE)
     {
         auto e = static_cast<FellowViewEvent *>(event.get());
@@ -357,7 +353,7 @@ void MainWindow::notifyUnshown(UnshownMessage &umsg)
     {
         auto e = static_cast<const SendTimeoEvent *>(event);
         auto fellow = e->fellow.get();
-        umsg.notifyId = showNotification(fellow, "发送超时:" + simpleTextOf(e->content.get()));
+        umsg.notifyId = showNotification(fellow, "发送超时:" + QString::fromStdString(e->content->simpleText()));
     }
     else if (event->what == ViewEventType::MESSAGE)
     {
@@ -367,7 +363,7 @@ void MainWindow::notifyUnshown(UnshownMessage &umsg)
         bool first = false;
         for (auto content : e->contents)
         {
-            auto t = simpleTextOf(content.get());
+            auto t =  QString::fromStdString(content->simpleText());
             if (first)
                 text = t;
             else
@@ -542,20 +538,14 @@ void MainWindow::initFeiq()
     //从数据库中加载好友列表
     auto &history = mFeiq.getHistory();
     //查询所有好友
-    vector<Fellow> fellows = history.queryFellows("ip != '" + mFeiq.mySelf.get()->getIp() + "'");
-    //去重好友列表
-    unordered_map<string, shared_ptr<Fellow>> uniqueFellows;
+    vector<Fellow> fellows = history.queryFellows("ip != ?", {mFeiq.mySelf.get()->getIp()});
     for (const auto &fellow : fellows)
     {
-        uniqueFellows[fellow.getIp()] = make_shared<Fellow>(fellow);
+        auto fellow2 = make_shared<Fellow>(fellow);
+        mFeiq.getModel().addFellow(fellow2);
+        mFellowList.update(*fellow2.get());
     }
-    //将好友添加到界面
-    for (const auto &pair : uniqueFellows)
-    {
-        auto fellow = pair.second;
-        mFeiq.getModel().addFellow(fellow);
-        mFellowList.update(*(fellow.get()));
-    }
+
 
     qDebug() << "feiq started";
 }
@@ -615,7 +605,7 @@ void MainWindow::readEvent(const ViewEvent *event)
     if (event->what == ViewEventType::SEND_TIMEO)
     {
         auto e = static_cast<const SendTimeoEvent *>(event);
-        auto simpleText = simpleTextOf(e->content.get());
+        auto simpleText = QString::fromStdString( e->content->simpleText());
         if (simpleText.length() > 20)
         {
             simpleText = simpleText.left(20) + "...";
@@ -641,22 +631,6 @@ void MainWindow::setBadgeNumber(int number)
     PlatformDepend::instance().setBadgeNumber(number);
 }
 
-QString MainWindow::simpleTextOf(const Content *content)
-{
-    switch (content->type())
-    {
-    case ContentType::Text:
-        return static_cast<const TextContent *>(content)->text.c_str();
-        break;
-    case ContentType::File:
-        return static_cast<const FileContent *>(content)->filename.c_str();
-    case ContentType::Knock:
-        return "窗口抖动";
-    default:
-        return "***";
-        break;
-    }
-}
 
 UnshownMessage &MainWindow::addUnshownMessage(const Fellow *fellow, shared_ptr<ViewEvent> event)
 {

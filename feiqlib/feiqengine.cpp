@@ -517,7 +517,7 @@ FeiqEngine::FeiqEngine()
 {
     //初始化  mySelf
     mySelf = make_shared<Fellow>(Fellow());
-    mySelf.get()->setIp("127.0.0.1");
+    mySelf.get()->setIp(MYSELF_IP);
     mySelf.get()->setName("我");
     mySelf.get()->setOnLine(true);
 
@@ -556,14 +556,6 @@ pair<bool, string> FeiqEngine::send(shared_ptr<Fellow> fellow, shared_ptr<Conten
     if (sender == nullptr)
         return {false, "no send protocol can send"};
 
-    //记录发送的消息
-    HistoryRecord record;
-    record.time = time_point_cast<milliseconds>(system_clock::now());
-    record.sender = mySelf;
-    record.receiver = fellow;
-    record.what = content;
-    mHistory.add(record);
-
     sender->setContent(content.get());
     auto ip = fellow->getIp();
     auto ret = mCommu.send(ip, *sender);
@@ -584,6 +576,10 @@ pair<bool, string> FeiqEngine::send(shared_ptr<Fellow> fellow, shared_ptr<Conten
         auto handler = std::bind(&FeiqEngine::onSendTimeo, this, placeholders::_1, ip, content);
         mAsyncWait.addWaitPack(content->packetNo, handler, 5000);
     }
+
+    //记录发送的消息
+    mHistory.add(mySelf, fellow, content);
+
     return {true, ""};
 }
 
@@ -762,6 +758,11 @@ void FeiqEngine::setMyName(string name)
         mName = mHost;
 }
 
+void FeiqEngine::setView(IFeiqView *view)
+{
+    mView = view;
+}
+
 void FeiqEngine::sendImOnLine(const string &ip)
 {
     SendImOnLine imOnLine(mName);
@@ -911,6 +912,14 @@ void FeiqEngine::onSendTimeo(IdType packetId, const string &ip, shared_ptr<Conte
 
     event->content = content;
     mMsgThd.sendMessage(event);
+
+    //记录发送失败的消息
+    mHistory.modify("receiver = ? and time = ?",
+    {
+        to_string(event->fellow->getId()),
+        to_string(timeToLong(content->getSendTime()))
+    },
+    ViewEventType::SEND_TIMEO);
 }
 
 void FeiqEngine::onReadMessage(shared_ptr<Post> post)

@@ -8,7 +8,7 @@
 #include <QTextEdit>
 
 using namespace std;
-
+class HistoryRecord;
 class RecvTextEdit: public QTextEdit
 {
     Q_OBJECT
@@ -21,6 +21,7 @@ protected:
 
 public:
     void addContent(const Content *content, long long msSinceEpoch, bool mySelf);
+    void addHistoryContent(const HistoryRecord &record);
     void addFellowContent(const Content *content, long long msSinceEpoch);
     void addMyContent(const Content *content, long long msSinceEpoch);
     void setCurFellow(const Fellow *fellow);

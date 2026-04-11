@@ -38,10 +38,7 @@ public:
     void addToBroadcast(const string &ip);
     void setMyHost(string host);
     void setMyName(string name);
-    void setView(IFeiqView *view)
-    {
-        mView = view;
-    }
+    void setView(IFeiqView *view);
     void sendImOnLine(const string &ip = "");
     /**
      * @brief enableIntervalDetect 当接入路由，被禁止发送广播包时，

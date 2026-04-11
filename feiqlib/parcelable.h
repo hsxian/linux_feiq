@@ -15,41 +15,19 @@ private:
     class Head
     {
     public:
-        Head(int size)
-        {
-            this->size = size;
-        }
+        Head(int size);
 
-        Head(istream &ss)
-        {
-            read(ss);
-        }
+        Head(istream &ss);
 
         int size;
 
-        void myWriteInt(ostream &os, int val)
-        {
-            char buf[9] = {0};
-            snprintf(buf, sizeof(buf), "%08d", val);
-            os << buf;
-        }
+        void myWriteInt(ostream &os, int val);
 
-        int myReadInt(istream &is)
-        {
-            char buf[9] = {0};
-            is.read(buf, sizeof(buf) - 1);
-            return stoi(buf);
-        }
+        int myReadInt(istream &is);
 
-        void write(ostream &os)
-        {
-            myWriteInt(os, size);
-        }
+        void write(ostream &os);
 
-        void read(istream &is)
-        {
-            size = myReadInt(is);
-        }
+        void read(istream &is);
     };
 
 public:
@@ -82,62 +60,24 @@ public:
         memcpy(ptr, buf.get(), head.size);
     }
 
-    void writeString(const string &val)
-    {
-        writePtr(val.c_str(), val.length());
-    }
+    void writeString(const string &val);
 
-    void readString(string &val)
-    {
-        auto size = nextSize();
-        unique_ptr<char[]> buf(new char[size + 1]);
-        readPtr(buf.get());
-        buf[size] = 0;
-        val = buf.get();
-    }
+    void readString(string &val);
 
-    void resetForRead()
-    {
-        ss.seekg(0, ss.beg);
-    }
+    void resetForRead();
 
-    void fillWith(const void *data, int len)
-    {
-        ss.clear();
-        ss.write(static_cast<const char *>(data), len);
-    }
+    void fillWith(const void *data, int len);
 
 public:
-    streampos mark()
-    {
-        return ss.tellg();
-    }
+    streampos mark();
 
-    void unmark(streampos markPos)
-    {
-        ss.seekg(markPos);
-    }
+    void unmark(streampos markPos);
 
 public:
-    vector<char> raw()
-    {
-        auto size = ss.tellp();
-        resetForRead();
-
-        vector<char> buf(size);
-        ss.read(buf.data(), size);
-
-        return buf;
-    }
+    vector<char> raw();
 
 private:
-    int nextSize()
-    {
-        auto pos = mark();
-        Head head(ss);
-        unmark(pos);
-        return head.size;
-    }
+    int nextSize();
 
 private:
     stringstream ss;

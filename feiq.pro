@@ -33,6 +33,10 @@ mac{
 }
 
 SOURCES += main.cpp\
+    feiqlib/content.cpp \
+    feiqlib/fellow.cpp \
+    feiqlib/parcelable.cpp \
+    feiqlib/sqlitehelper.cpp \
         mainwindow.cpp \
     feiqlib/udpcommu.cpp \
     feiqlib/feiqcommu.cpp \
@@ -65,6 +69,7 @@ SOURCES += main.cpp\
 
 HEADERS  += mainwindow.h \
     feiqlib/ipmsg.h \
+    feiqlib/sqlitehelper.h \
     feiqlib/udpcommu.h \
     feiqlib/feiqcommu.h \
     feiqlib/protocol.h \

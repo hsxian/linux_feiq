@@ -87,7 +87,6 @@ private:
     void initFeiq();
     void readEvent(const ViewEvent* event);
     void setBadgeNumber(int number);
-    QString simpleTextOf(const Content* content);
 
     UnshownMessage& addUnshownMessage(const Fellow *fellow, shared_ptr<ViewEvent> event);
     UnshownMessage *findUnshownMessage(int id);

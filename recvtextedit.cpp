@@ -2,11 +2,12 @@
 #include <QDate>
 #include "emoji.h"
 #include <QMouseEvent>
+#include "feiqlib/history.h"
 
 RecvTextEdit::RecvTextEdit(QWidget *parent)
-    :QTextEdit(parent)
+    : QTextEdit(parent)
 {
-    setTextInteractionFlags(Qt::LinksAccessibleByMouse|Qt::TextSelectableByMouse | Qt::TextSelectableByKeyboard);
+    setTextInteractionFlags(Qt::LinksAccessibleByMouse | Qt::TextSelectableByMouse | Qt::TextSelectableByKeyboard);
 }
 
 void RecvTextEdit::mousePressEvent(QMouseEvent *e)
@@ -37,13 +38,40 @@ void RecvTextEdit::addMyContent(const Content *content, long long msSinceEpoch)
 
 void RecvTextEdit::addContent(const Content *content, long long msSinceEpoch, bool mySelf)
 {
+    auto align = alignment();
+    // 设置对齐方式
+    if (mySelf)
+    {
+        setAlignment(Qt::AlignRight);
+    }
+    else
+    {
+        setAlignment(Qt::AlignLeft);
+    }
+    
     drawDaySeperatorIfNewDay(msSinceEpoch);
 
     showHint(msSinceEpoch, mySelf);
 
     showContent(content, mySelf);
-    append("\n");
+    append("");
     moveCursor(QTextCursor::End);
+    
+    // 重置对齐方式为默认的左对齐
+    setAlignment(align);
+}
+
+void RecvTextEdit::addHistoryContent(const HistoryRecord &record)
+{
+    auto time = timeToLong(record.time);
+    //判断消息是自己发送的还是对方发送的
+    auto content = record.what.get();
+    addContent(content, time, record.sender.get()->getIp() == MYSELF_IP);
+
+    if (record.eventType == ViewEventType::SEND_TIMEO)
+    {
+        addWarning("发送超时:" + QString::fromStdString(content->simpleText()));
+    }
 }
 
 void RecvTextEdit::showHint(long long msSinceEpoch, bool mySelf)
@@ -61,7 +89,7 @@ void RecvTextEdit::showHint(long long msSinceEpoch, bool mySelf)
         color = "green";
     }
 
-    QString hint = "<font color="+color+">"+ name+" "+timeStr(msSinceEpoch)+"</font>";
+    QString hint = "<font color=" + color + ">" + name + " " + timeStr(msSinceEpoch) + "</font>";
 
     moveCursor(QTextCursor::End);
     insertHtml(hint);
@@ -92,9 +120,10 @@ void RecvTextEdit::addWarning(const QString &warning)
     auto align = alignment();
     setAlignment(Qt::AlignCenter);
     auto color = textColor();
-    setTextColor(QColor(128,128,128));
+    setTextColor(QColor(128, 128, 128));
     append(warning);
-    append("");//结束当前段落，否则下一行恢复对齐方式时会将刚append的内容左对齐
+    append("");
+    //结束当前段落，否则下一行恢复对齐方式时会将刚append的内容左对齐
     setAlignment(align);
     setTextColor(color);
 }
@@ -107,7 +136,7 @@ const Fellow *RecvTextEdit::curFellow()
 void RecvTextEdit::parseLink(const QString &link)
 {
     QStringList parts = link.split("_");
-    if (parts.count()<3)
+    if (parts.count() < 3)
         return;
 
     auto packetNo = parts.at(0).toLongLong();
@@ -129,16 +158,16 @@ void RecvTextEdit::showContent(const Content *content, bool mySelf)
     switch (content->type())
     {
     case ContentType::File:
-        showFile(static_cast<const FileContent*>(content), mySelf);
+        showFile(static_cast<const FileContent *>(content), mySelf);
         break;
     case ContentType::Knock:
-        showKnock(static_cast<const KnockContent*>(content), mySelf);
+        showKnock(static_cast<const KnockContent *>(content), mySelf);
         break;
     case ContentType::Image:
-        showImage(static_cast<const ImageContent*>(content));
+        showImage(static_cast<const ImageContent *>(content));
         break;
     case ContentType::Text:
-        showText(static_cast<const TextContent*>(content));
+        showText(static_cast<const TextContent *>(content));
         break;
     default:
         showUnSupport();
@@ -148,12 +177,12 @@ void RecvTextEdit::showContent(const Content *content, bool mySelf)
 
 void RecvTextEdit::showFile(const FileContent *content, bool fromMySelf)
 {
-    if (content->fileType == IPMSG_FILE_REGULAR)
+    if (content->fileType == IPMSG_FILE_REGULAR || content->fileType == IPMSG_NOOPERATION)
     {
         stringstream ss;
-        ss<<"<a href="<<content->packetNo<<"_"<<content->fileId<<"_"<<(fromMySelf?"up":"down")<<">"
-         <<content->filename<<"("<<content->size<<")"
-        <<"</a>";
+        ss << "<a href=" << content->packetNo << "_" << content->fileId << "_" << (fromMySelf ? "up" : "down") << ">"
+           << content->filename << "(" << content->size << ")"
+           << "</a>";
         insertHtml(ss.str().c_str());
     }
     else
@@ -180,13 +209,13 @@ void RecvTextEdit::showKnock(const KnockContent *content, bool mySelf)
         insertHtml("[发来窗口抖动]");
 }
 
-void RecvTextEdit::showUnSupport(const QString& text)
+void RecvTextEdit::showUnSupport(const QString &text)
 {
     QString t = text;
     if (t.isEmpty())
         t = "对方发来尚未支持的内容，无法显示";
 
-    insertHtml("<font color=\"red\">"+t+"</font>");
+    insertHtml("<font color=\"red\">" + t + "</font>");
 }
 
 void RecvTextEdit::drawDaySeperatorIfNewDay(long long sinceEpoch)
@@ -199,7 +228,7 @@ void RecvTextEdit::drawDaySeperatorIfNewDay(long long sinceEpoch)
         QDateTime last;
         last.setMSecsSinceEpoch(mLastEdit);
 
-        if (last.daysTo(cur)>0)
+        if (last.daysTo(cur) > 0)
         {
             addWarning("-----------------------------");
         }
@@ -218,10 +247,10 @@ QString RecvTextEdit::textHtmlStr(const TextContent *content)
 
     for (auto i = 0; i < EMOJI_LEN; i++)
     {
-         auto resName = QString(":/default/res/face/")+QString::number(i+1)+".gif";
-         auto emojiStr = QString(g_emojis[i]).toHtmlEscaped();
-         QString imgTag = "<img src=\""+resName+"\"/>";
-         htmlStr.replace(emojiStr, imgTag);
+        auto resName = QString(":/default/res/face/") + QString::number(i + 1) + ".gif";
+        auto emojiStr = QString(g_emojis[i]).toHtmlEscaped();
+        QString imgTag = "<img src=\"" + resName + "\"/>";
+        htmlStr.replace(emojiStr, imgTag);
     }
 
     return htmlStr;
